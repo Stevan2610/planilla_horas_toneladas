@@ -1,0 +1,353 @@
+<!doctype html><html><head>
+<meta charset="utf-8"><title>Admin - Planilla</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+  // Configuración global de Axios
+  axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src';
+  axios.defaults.withCredentials = true; // permite enviar cookies/sesiones
+</script>
+</head><body>
+<div class="container">
+  <div class="header"><h2>Administración de Usuarios</h2><a href="index.html" class="btn secondary">Salir</a></div>
+  <table class="table" id="tablaUsers">
+    <thead>
+      <tr>
+        <th>Identificación</th>
+        <th>Nombres</th>
+        <th>Apellidos</th>
+        <th>Correo</th>
+        <th>Clave</th>
+        <th>Celular</th>
+        <th>Cargo</th>
+        <th>Unidad</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+<script>
+async function load(){ 
+  try{ 
+    const res = await axios.get('?path=users/list'); 
+    const tbody = document.querySelector('#tablaUsers tbody'); 
+    tbody.innerHTML=''; 
+    res.data.data.forEach(u=>{ 
+      const tr=document.createElement('tr'); 
+      tr.innerHTML=
+      `<td>${u.identificacion}</td>
+      <td>${u.nombres}</td>
+      <td>${u.apellidos}</td>
+      <td>${u.correo}</td>
+      <td>${u.has_password ? '••••••' : ''}</td>
+      <td>${u.celular || ''}</td>
+      <td>${u.cargo}</td>
+      <td>${u.unidad_operativa}</td>
+      <td>
+        <button class="btn edit" data-id="${u.id}">Editar</button>
+        ${u.cargo === 'auxiliar' ? `<button class="btn secondary edit-registros" data-id="${u.id}" data-nombres="${u.nombres} ${u.apellidos}">Registros</button>` : ''}
+        <button class="btn secondary del" data-id="${u.id}">Eliminar</button>
+      </td>`; 
+      tbody.appendChild(tr); 
+    }); 
+  }catch(e){ 
+    console.error(e); 
+    if(e.response?.status===401) location.href='index.html'; 
+    else {
+      const tbody = document.querySelector('#tablaUsers tbody');
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:red;">Error al cargar usuarios. Intenta nuevamente.</td></tr>`;
+    }
+  } 
+}
+
+async function ensureAdmin() {
+  try {
+    const res = await axios.get('?path=auth/me');
+    const user = res.data.user;
+    if (!user || (user.cargo || '').toLowerCase() !== 'admin') {
+      // no autorizado
+      alert('Acceso no autorizado: se requiere usuario con cargo admin');
+      window.location.href = 'index.html';
+      return;
+    }
+    // permitido: cargar tabla
+    load();
+  } catch (e) {
+    console.error('Error comprobando sesión admin', e);
+    window.location.href = 'index.html';
+  }
+}
+
+// Delegated event listeners for edit/delete
+document.querySelector('#tablaUsers tbody').addEventListener('click', async (e) => {
+  const el = e.target;
+  if (el.classList.contains('del')){
+    const id = el.dataset.id;
+    if (!confirm('¿Eliminar usuario? Esta acción no se puede deshacer.')) return;
+    try {
+      const res = await axios.post('index.php?path=users/delete', { id });
+      if (res.data?.success) load();
+      else alert('Error: ' + JSON.stringify(res.data));
+    } catch (err) { console.error(err); alert('Error eliminando'); }
+  }
+  if (el.classList.contains('edit')){
+    const id = el.dataset.id;
+    const tr = el.closest('tr');
+    const cols = tr.querySelectorAll('td');
+    const current = {
+      id,
+      identificacion: cols[0].innerText,
+      nombres: cols[1].innerText,
+      apellidos: cols[2].innerText,
+      correo: cols[3].innerText,
+      celular: cols[4].innerText,
+      cargo: cols[5].innerText,
+      unidad_operativa: cols[6].innerText
+    };
+    showEditForm(current);
+  }
+  if (el.classList.contains('edit-registros')){
+    const userId = el.dataset.id;
+    const nombres = el.dataset.nombres;
+    showEditRegistrosModal(userId, nombres);
+  }
+});
+
+// Start: verificar sesión y permiso antes de mostrar
+ensureAdmin();
+
+// Genera una contraseña segura aleatoria
+function generatePassword(length = 10) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$!%*?';
+  const arr = new Uint32Array(length);
+  if (window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(arr);
+  } else {
+    for (let i = 0; i < length; i++) arr[i] = Math.floor(Math.random() * chars.length);
+  }
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    const idx = arr[i] % chars.length;
+    out += chars.charAt(idx);
+  }
+  return out;
+}
+
+function showEditForm(user){
+  let form = document.getElementById('editUserForm');
+  if (!form){
+    form = document.createElement('div');
+    form.id = 'editUserForm';
+    form.style = 'padding:12px; border:1px solid #ddd; margin:12px 0; background:#fff;';
+      form.innerHTML = `
+      <h3>Editar usuario</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <input id="e_identificacion" placeholder="Identificacion" class="input" />
+        <input id="e_nombres" placeholder="Nombres" class="input" />
+        <input id="e_apellidos" placeholder="Apellidos" class="input" />
+        <input id="e_correo" placeholder="Correo" class="input" />
+        <input id="e_celular" placeholder="Celular" class="input" />
+        <select id="e_cargo" class="input"><option value="auxiliar">Auxiliar</option><option value="jefe">Jefe</option><option value="admin">Administrador</option></select>
+        <select id="e_unidad" class="input"><option value="Cali">Cali</option><option value="Pereira">Pereira</option></select>
+        <input id="e_clave" placeholder="Nueva contraseña (opcional)" class="input" />
+      </div>
+      <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+        <button id="btnGenPass" type="button" class="btn secondary">Generar contraseña</button>
+        <div id="e_pass_show" style="display:none; align-items:center; gap:6px;">
+          <strong>Nueva clave:</strong> <span id="e_pshow_val" style="font-family:monospace; margin-left:6px;"></span>
+          <button id="btnCopyPass" type="button" class="btn">Copiar</button>
+        </div>
+      </div>
+      <div style="margin-top:8px;"><button id="btnSaveUser" class="btn">Guardar</button> <button id="btnCancelEdit" class="btn secondary">Cancelar</button></div>
+    `;
+    const container = document.querySelector('.container');
+    container.insertBefore(form, container.querySelector('.table'));
+    document.getElementById('btnCancelEdit').addEventListener('click', ()=> form.remove());
+    // Generar contraseña aleatoria y mostrar
+    document.getElementById('btnGenPass').addEventListener('click', ()=>{
+      const pwd = generatePassword(10);
+      document.getElementById('e_clave').value = pwd;
+      document.getElementById('e_pshow_val').innerText = pwd;
+      document.getElementById('e_pass_show').style.display = 'inline-flex';
+    });
+    document.getElementById('btnCopyPass').addEventListener('click', ()=>{
+      const txt = document.getElementById('e_pshow_val').innerText;
+      navigator.clipboard?.writeText(txt).then(()=> alert('Contraseña copiada al portapapeles')).catch(()=> alert('No se pudo copiar')); 
+    });
+
+    document.getElementById('btnSaveUser').addEventListener('click', async ()=>{
+      const payload = {
+        id: user.id,
+        identificacion: document.getElementById('e_identificacion').value,
+        nombres: document.getElementById('e_nombres').value,
+        apellidos: document.getElementById('e_apellidos').value,
+        correo: document.getElementById('e_correo').value,
+        celular: document.getElementById('e_celular').value,
+        cargo: document.getElementById('e_cargo').value,
+        unidad_operativa: document.getElementById('e_unidad').value,
+        clave: document.getElementById('e_clave').value
+      };
+      try{
+        const res = await axios.post('index.php?path=users/update', payload);
+        if (res.data?.success) {
+          // si se asignó contraseña, mostrarla al admin
+          if (payload.clave) {
+            alert('Usuario actualizado. Nueva contraseña: ' + payload.clave);
+          } else {
+            alert('Usuario actualizado');
+          }
+          form.remove();
+          load();
+        } else alert('Error: ' + JSON.stringify(res.data));
+      }catch(err){ console.error(err); alert('Error al actualizar'); }
+    });
+  }
+  document.getElementById('e_identificacion').value = user.identificacion || '';
+  document.getElementById('e_nombres').value = user.nombres || '';
+  document.getElementById('e_apellidos').value = user.apellidos || '';
+  document.getElementById('e_correo').value = user.correo || '';
+  document.getElementById('e_celular').value = user.celular || '';
+  document.getElementById('e_cargo').value = user.cargo || 'auxiliar';
+  document.getElementById('e_unidad').value = user.unidad_operativa || 'Cali';
+  document.getElementById('e_clave').value = '';
+}
+
+async function showEditRegistrosModal(userId, nombres){
+  try {
+    const res = await axios.get('?path=registros/user&user_id=' + userId);
+    const registros = res.data?.data || [];
+    
+    let modal = document.getElementById('editRegistrosModal');
+    if (modal) modal.remove(); // Limpiar modal anterior
+    
+    modal = document.createElement('div');
+    modal.id = 'editRegistrosModal';
+    modal.style = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
+    modal.innerHTML = `
+      <div style="background:white;border-radius:8px;padding:20px;max-width:90%;max-height:80vh;overflow-y:auto;width:600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3>Registros de ${nombres}</h3>
+          <button id="btnCloseRegistros" type="button" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
+        </div>
+        <div id="registrosContainer"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    document.getElementById('btnCloseRegistros').addEventListener('click', () => modal.remove());
+    
+    const container = document.getElementById('registrosContainer');
+    
+    if (registros.length === 0) {
+      container.innerHTML = '<p style="text-align:center;">Sin registros</p>';
+      return;
+    }
+    
+    const tabla = document.createElement('table');
+    tabla.className = 'table';
+    tabla.style = 'font-size:12px;';
+    tabla.innerHTML = `
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Entrada</th>
+          <th>Salida</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="registrosTableBody"></tbody>
+    `;
+    container.appendChild(tabla);
+    
+    const tbody = tabla.querySelector('tbody');
+    registros.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.fecha}</td>
+        <td>${r.hora_entrada || ''}</td>
+        <td>${r.hora_salida || ''}</td>
+        <td><button class="btn secondary edit-registro-item" data-id="${r.id}">Editar</button></td>
+      `;
+      tbody.appendChild(tr);
+      
+      tr.querySelector('.edit-registro-item').addEventListener('click', () => {
+        showEditRegistroForm(r, userId, nombres, container);
+      });
+    });
+    
+  } catch (err) {
+    console.error(err);
+    alert('Error al cargar registros: ' + err.message);
+  }
+}
+
+function showEditRegistroForm(registro, userId, nombres, container){
+  let form = document.getElementById('editRegistroForm');
+  if (form) form.remove(); // Limpiar formulario anterior
+  
+  form = document.createElement('div');
+  form.id = 'editRegistroForm';
+  form.style = 'padding:12px; border:1px solid #ddd; margin:12px 0; background:#f9f9f9;';
+  form.innerHTML = `
+    <h4>Editar Registro - ${registro.fecha}</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <input id="er_hora_entrada" placeholder="Hora Entrada (HH:MM)" class="input" />
+      <input id="er_hora_salida" placeholder="Hora Salida (HH:MM)" class="input" />
+      <input id="er_toneladas" type="number" placeholder="Toneladas" class="input" />
+      <input id="er_ton_coteadas" type="number" placeholder="Ton Coteadas" class="input" />
+      <input id="er_bono_transporte" type="number" placeholder="Bono Transporte" class="input" />
+      <input id="er_bono_alimentacion" type="number" placeholder="Bono Alimentación" class="input" />
+      <input id="er_recargo_nocturno" type="number" placeholder="Recargo Nocturno" class="input" />
+      <input id="er_he_diurnas" type="number" placeholder="HE Diurnas" class="input" />
+      <input id="er_he_nocturnas" type="number" placeholder="HE Nocturnas" class="input" />
+      <input id="er_he_dom_fest" type="number" placeholder="HE Dom/Fest" class="input" />
+    </div>
+    <div style="margin-top:8px;">
+      <button id="btnSaveRegistro" class="btn">Guardar</button>
+      <button id="btnCancelRegistro" class="btn secondary">Cancelar</button>
+    </div>
+  `;
+  container.insertBefore(form, container.firstChild);
+  
+  // Cargar valores actuales
+  document.getElementById('er_hora_entrada').value = registro.hora_entrada || '';
+  document.getElementById('er_hora_salida').value = registro.hora_salida || '';
+  document.getElementById('er_toneladas').value = registro.toneladas || 0;
+  document.getElementById('er_ton_coteadas').value = registro.ton_coteadas || 0;
+  document.getElementById('er_bono_transporte').value = registro.bono_transporte || 0;
+  document.getElementById('er_bono_alimentacion').value = registro.bono_alimentacion || 0;
+  document.getElementById('er_recargo_nocturno').value = registro.recargo_nocturno || 0;
+  document.getElementById('er_he_diurnas').value = registro.he_diurnas || 0;
+  document.getElementById('er_he_nocturnas').value = registro.he_nocturnas || 0;
+  document.getElementById('er_he_dom_fest').value = registro.he_dom_fest || 0;
+  
+  document.getElementById('btnCancelRegistro').addEventListener('click', () => form.remove());
+  document.getElementById('btnSaveRegistro').addEventListener('click', async () => {
+    const payload = {
+      id: registro.id,
+      hora_entrada: document.getElementById('er_hora_entrada').value,
+      hora_salida: document.getElementById('er_hora_salida').value,
+      toneladas: parseFloat(document.getElementById('er_toneladas').value) || 0,
+      ton_coteadas: parseFloat(document.getElementById('er_ton_coteadas').value) || 0,
+      bono_transporte: parseFloat(document.getElementById('er_bono_transporte').value) || 0,
+      bono_alimentacion: parseFloat(document.getElementById('er_bono_alimentacion').value) || 0,
+      recargo_nocturno: parseFloat(document.getElementById('er_recargo_nocturno').value) || 0,
+      he_diurnas: parseFloat(document.getElementById('er_he_diurnas').value) || 0,
+      he_nocturnas: parseFloat(document.getElementById('er_he_nocturnas').value) || 0,
+      he_dom_fest: parseFloat(document.getElementById('er_he_dom_fest').value) || 0
+    };
+    try {
+      const res = await axios.post('index.php?path=registros/update', payload);
+      if (res.data?.success) {
+        alert('Registro actualizado');
+        form.remove();
+        showEditRegistrosModal(userId, nombres);
+      } else alert('Error: ' + JSON.stringify(res.data));
+    } catch (err) { console.error(err); alert('Error al actualizar'); }
+  });
+}
+</script>
+</body></html>

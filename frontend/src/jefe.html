@@ -1,0 +1,54 @@
+<!doctype html><html><head>
+<meta charset="utf-8"><title>Jefe - Planilla</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+  // Configuración global de Axios
+  axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src';
+  axios.defaults.withCredentials = true; // permite enviar cookies/sesiones
+</script>
+</head><body>
+<div class="container">
+  <div class="header"><h2>Novedades de Nómina</h2>
+    <div class="actions"><a href="adicionales_cali.html" class="btn">Adicionales</a><button id="btnSalir" class="btn secondary">Salir</button></div>
+  </div>
+  <table class="table" id="tablaJefe"><thead>
+    <tr><th>Nombre</th><th>Unidad</th><th>Entrada</th><th>Salida</th><th>Bono Transporte</th><th>Bono Alimentación</th><th>Recargo</th><th>HE Diurnas</th><th>HE Nocturnas</th><th>HE Dom/Fest</th><th>Ton</th><th>Ton Coteadas</th><th>Acción</th></tr>
+  </thead><tbody></tbody></table>
+</div>
+<script>
+document.getElementById('btnSalir').addEventListener('click', async ()=>{ 
+  try {
+    await axios.post('?path=auth/logout');
+  } catch(e) {
+    console.error('Error al cerrar sesión', e);
+  } finally {
+    location.href='index.html';
+  }
+});
+
+async function load(){
+  try{
+    const res = await axios.get('?path=registros/all');
+    const rows = res.data.data;
+    const tbody = document.querySelector('#tablaJefe tbody');
+    tbody.innerHTML='';
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.nombres} ${r.apellidos}</td><td>${r.unidad_operativa}</td><td>${r.hora_entrada}</td><td>${r.hora_salida}</td><td>${r.bono_transporte}</td><td>${r.bono_alimentacion}</td><td>${r.recargo_nocturno}</td><td>${r.he_diurnas}</td><td>${r.he_nocturnas}</td><td>${r.he_dom_fest}</td><td>${r.toneladas}</td><td>${r.ton_coteadas}</td><td><a class="btn" href="auxiliar.html">Ver/Editar</a></td>`;
+      tbody.appendChild(tr);
+    });
+  }catch(e){ 
+    console.error(e); 
+    if(e.response?.status===401) location.href='index.html'; 
+    else {
+      const tbody = document.querySelector('#tablaJefe tbody');
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error al cargar datos. Intenta nuevamente.</td></tr>`;
+    }
+  }
+}
+load();
+</script>
+</body></html>

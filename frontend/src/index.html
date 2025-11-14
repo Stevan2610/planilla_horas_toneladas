@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Login - Planilla</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="assets/css/styles.css">
+
+  <!-- Solo una carga de Axios -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+  <script>
+    // ✅ Configuración global de Axios
+    axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src';
+    axios.defaults.withCredentials = true; // <-- necesario para sesiones PHP
+  </script>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Iniciar sesión</h2>
+      <a href="register.html" class="btn secondary">Registrar</a>
+    </div>
+
+    <div id="msg" class="message"></div>
+
+    <div class="form-row">
+      <input id="identificacion" class="input" placeholder="Número de identificación">
+      <input id="clave" type="password" class="input" placeholder="Contraseña">
+    </div>
+
+    <div class="form-row">
+      <button id="btnLogin" class="btn">Ingresar</button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('btnLogin').addEventListener('click', async () => {
+      const identificacion = document.getElementById('identificacion').value.trim();
+      const clave = document.getElementById('clave').value.trim();
+      const msgDiv = document.getElementById('msg');
+
+      // 🧩 Validar campos
+      if (!identificacion || !clave) {
+        msgDiv.innerText = '⚠️ Complete ambos campos.';
+        msgDiv.style.color = 'red';
+        return;
+      }
+
+      try {
+        // ✅ Llamada correcta al backend
+        const res = await axios.post(
+          'http://localhost/planilla_horas_toneladas/backend/src/index.php?path=auth/login',
+          { identificacion, clave },
+          { withCredentials: true }
+        );
+
+        console.log('Respuesta del backend:', res.data);
+
+        if (res.data?.success && res.data?.user) {
+          const user = res.data.user;
+          msgDiv.innerText = '✅ Login exitoso. Cargando...';
+          msgDiv.style.color = 'green';
+
+          // ✅ Redirige según cargo
+          setTimeout(() => {
+            switch (user.cargo?.toLowerCase()) {
+              case 'auxiliar':
+                window.location.href = 'auxiliar.html';
+                break;
+              case 'jefe':
+                window.location.href = 'jefe.html';
+                break;
+              case 'admin':
+                window.location.href = 'admin.html';
+                break;
+              default:
+                msgDiv.innerText = '⚠️ Cargo desconocido o no autorizado.';
+                msgDiv.style.color = 'red';
+            }
+          }, 500);
+        } else {
+          msgDiv.innerText = res.data?.error || '❌ Credenciales inválidas.';
+          msgDiv.style.color = 'red';
+        }
+
+      } catch (e) {
+        console.error('Login error:', e);
+        const text = e.response?.data?.error || 'Error de conexión con el servidor.';
+        msgDiv.innerText = '⚠️ ' + text;
+        msgDiv.style.color = 'red';
+      }
+    });
+  </script>
+</body>
+</html>

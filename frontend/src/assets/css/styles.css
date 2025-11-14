@@ -1,0 +1,17 @@
+/* Simple responsive styles */
+body{font-family: Arial, sans-serif; margin:0; padding:0; background:#f5f7fb; color:#222;}
+.container{max-width:1100px;margin:20px auto;padding:16px;background:#fff;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.06);}
+.header{display:flex;justify-content:space-between;align-items:center;padding:8px 0;}
+.form-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.input{flex:1;min-width:180px;padding:8px;border:1px solid #ddd;border-radius:6px;}
+.btn{padding:8px 12px;border:none;border-radius:6px;cursor:pointer;background:#1976d2;color:white;}
+.btn.secondary{background:#6c757d;}
+.table{width:100%;border-collapse:collapse;margin-top:12px;}
+.table th,.table td{padding:8px;border:1px solid #eee;text-align:left;font-size:14px;}
+.table tr.dia-festivo{background:#fff3cd;}
+.actions{display:flex;gap:8px;}
+@media(max-width:800px){
+  .header{flex-direction:column;align-items:flex-start;gap:12px;}
+  .form-row{flex-direction:column;}
+}
+.canvas-sign{border:1px dashed #ccc;border-radius:6px;padding:8px;}

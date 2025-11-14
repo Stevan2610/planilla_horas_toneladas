@@ -1,0 +1,135 @@
+<!doctype html><html><head>
+<meta charset="utf-8"><title>Registro Diario</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+  // Configuración global de Axios
+    axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend'; //cambio la direccion estaba mal por eso no daba asi que esta es la bueno y ya guarda los datos de los aux
+
+  axios.defaults.withCredentials = true; // permite enviar cookies/sesiones
+</script>
+</head><body>
+<div class="container">
+  <div class="header"><h2>Registro Diario</h2><a href="auxiliar.html" class="btn secondary">Volver</a></div>
+  <div id="msg"></div>
+  <div class="form-row">
+    <input id="fecha" type="date" class="input">
+    <input id="hora_entrada" type="time" class="input">
+    <input id="hora_salida" type="time" class="input">
+  </div>
+  <div class="form-row">
+    <input id="placa" class="input" placeholder="Placa vehículo">
+    <input id="numero_folio" class="input" placeholder="Número de folio">
+  </div>
+  <div class="form-row">
+    <input id="toneladas" class="input" placeholder="Toneladas">
+    <input id="ton_coteadas" class="input" placeholder="Ton Coteadas">
+  </div>
+  <div style="margin:8px 0;"><label>Firma validación (dibuje):</label><div class="canvas-sign"><canvas id="canvas" width="400" height="120"></canvas><br><button id="btnClear" class="btn secondary">Borrar</button></div></div>
+  <div class="form-row">
+    <button id="btnGuardar" class="btn">Guardar</button>
+  </div>
+</div>
+<script>
+// Simple canvas signature nt
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let drawing=false;
+canvas.addEventListener('mousedown', ()=>drawing=true);
+canvas.addEventListener('mouseup', ()=>drawing=false);
+canvas.addEventListener('mouseout', ()=>drawing=false);
+canvas.addEventListener('mousemove', (e)=>{ if(!drawing) return; const rect=canvas.getBoundingClientRect(); const x=e.clientX-rect.left; const y=e.clientY-rect.top; ctx.fillRect(x,y,2,2); });
+document.getElementById('btnClear').addEventListener('click', ()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); });
+
+function isHoliday(dateStr){
+  // stub: you can expand to check a list of holidays
+  const d = new Date(dateStr);
+  return d.getDay()===0;
+}
+
+function timeToMinutes(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
+function minutesToHours(m){ return Math.max(0, Math.round((m/60)*100)/100); }
+
+document.getElementById('btnGuardar').addEventListener('click', async ()=>{
+  const fecha = document.getElementById('fecha').value;
+  const hora_entrada = document.getElementById('hora_entrada').value;
+  const hora_salida = document.getElementById('hora_salida').value;
+  if(!fecha || !hora_entrada || !hora_salida) { alert('Complete fecha y horas'); return; }
+
+  const entradaMin = timeToMinutes(hora_entrada);
+  const salidaMin = timeToMinutes(hora_salida);
+  let totalMin = salidaMin - entradaMin;
+  if(totalMin < 0) totalMin += 24*60; 
+  const totalHours = totalMin/60;
+
+  // Bono transporte y alimentacion por fecha
+  const bono_transporte = 3000;
+  const bono_alimentacion = 5000;
+
+  // recargo nocturno
+  let recargo_nocturno = 0;
+  const noctStart = 21*60;
+  const noctEnd = 6*60;
+  let noctMin = 0;
+
+  for(let t=entradaMin; t<entradaMin+totalMin; t++){
+    const minute = t % (24*60);
+    if(minute>=noctStart || minute<noctEnd){
+
+      const d = new Date(fecha);
+      const isSun = d.getDay()===0;
+      const hour = Math.floor(minute/60);
+      if(!(isSun && minute<6*60)) noctMin++;
+    }
+  }
+  recargo_nocturno = minutesToHours(noctMin)*1000; // valor por recargo en pesos por hora
+  let he_diurnas=0, he_nocturnas=0;
+  const normalThreshold = 8*60;
+  const extraMin = Math.max(0, totalMin - normalThreshold);
+ 
+  for(let t=entradaMin+normalThreshold; t<entradaMin+totalMin; t++){
+    const minute = t % (24*60);
+    if(minute>=noctStart || minute<noctEnd) he_nocturnas++;
+    else he_diurnas++;
+  }
+  he_diurnas = minutesToHours(he_diurnas);
+  he_nocturnas = minutesToHours(he_nocturnas);
+
+  //horas dominicales
+  let he_dom_fest=0, he_diurnas_dom=0, he_nocturnas_dom=0;
+  if (isHoliday(fecha)){
+    he_dom_fest = totalHours;
+    
+    for(let t=entradaMin; t<entradaMin+totalMin; t++){
+      const minute = t % (24*60);
+      if(minute>=noctStart || minute<noctEnd) he_nocturnas_dom++; else he_diurnas_dom++;
+    }
+    he_diurnas_dom = minutesToHours(he_diurnas_dom);
+    he_nocturnas_dom = minutesToHours(he_nocturnas_dom);
+  }
+
+  const toneladas = parseFloat(document.getElementById('toneladas').value) || 0;
+  const ton_coteadas = parseFloat(document.getElementById('ton_coteadas').value) || 0;
+  const firma = canvas.toDataURL();
+
+  const payload = {
+    fecha, hora_entrada, hora_salida, placa: document.getElementById('placa').value,
+    numero_folio: document.getElementById('numero_folio').value,
+    toneladas, ton_coteadas, firma,
+    bono_transporte, bono_alimentacion, recargo_nocturno,
+    he_diurnas, he_nocturnas, he_dom_fest, he_diurnas_dom, he_nocturnas_dom
+  };
+
+  try{
+      await axios.post('http://localhost/planilla_horas_toneladas/backend/src/index.php?path=registros/save', payload); //cambio nt me toco hacer un nuevo index.php para redirigir esto explicar
+    alert('Guardado correctamente');
+    location.href='auxiliar.html';
+  }catch(e){
+    console.error(e);
+    alert('Error al guardar');
+  }
+});
+</script>
+</body></html>

@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Registro - Planilla</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+  // Configuración global de Axios
+  axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src';
+  axios.defaults.withCredentials = true; // permite enviar cookies/sesiones
+</script>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>Registro de usuario</h2>
+    <a href="index.html" class="btn secondary">Cancelar</a>
+  </div>
+
+  <div id="msg"></div>
+
+  <!-- 🔹 Aquí añadimos el formulario con el id correcto -->
+  <form id="registerForm">
+    <div class="form-row">
+      <input id="nombres" class="input" placeholder="Nombres" required>
+      <input id="apellidos" class="input" placeholder="Apellidos" required>
+    </div>
+
+    <div class="form-row">
+      <input id="identificacion" class="input" placeholder="Número de identificación" required>
+      <input id="correo" type="email" class="input" placeholder="Correo" required>
+    </div>
+
+    <div class="form-row">
+      <input id="clave" type="password" class="input" placeholder="Clave" required>
+      <input id="celular" class="input" placeholder="Número celular">
+    </div>
+
+    <div class="form-row">
+      <select id="cargo" class="input" required>
+        <option value="auxiliar">Auxiliar</option>
+        <option value="jefe">Jefe</option>
+        <option value="admin">Administrador</option>
+      </select>
+
+      <!-- 🔹 El id correcto es unidad_operativa -->
+      <select id="unidad_operativa" class="input" required>
+        <option value="Cali">Cali</option>
+        <option value="Pereira">Pereira</option>
+      </select>
+    </div>
+
+    <div style="margin:8px 0;">
+      <label><input id="acepta" type="checkbox" required> Acepto la política de tratamiento de datos y autorizo a Newrest</label>
+    </div>
+
+    <div class="form-row">
+      <button type="submit" class="btn">Registrarse</button>
+      <a href="index.html" class="btn secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const data = {
+    identificacion: document.getElementById('identificacion').value,
+    nombres: document.getElementById('nombres').value,
+    apellidos: document.getElementById('apellidos').value,
+    correo: document.getElementById('correo').value,
+    clave: document.getElementById('clave').value,
+    celular: document.getElementById('celular').value,
+    cargo: document.getElementById('cargo').value,
+    unidad_operativa: document.getElementById('unidad_operativa').value,
+  };
+
+  try {
+    // ✅ enviamos a tu backend PHP (URL explícita para mayor fiabilidad)
+    const res = await axios.post('index.php?path=auth/register', data, { withCredentials: true });
+    console.log(res.data);
+
+    const msgDiv = document.getElementById('msg');
+    if (res.data.success) {
+      msgDiv.innerHTML = '<div style="color:green;"> ✅ Registro exitoso. Redirigiendo...</div>';
+      setTimeout(() => window.location.href = 'index.html', 1200);
+    } else {
+      msgDiv.innerHTML = '<div style="color:red;">❌ Error: ' + (res.data.error || 'Desconocido') + '</div>';
+    }
+  } catch (err) {
+    console.error(err);
+    const msgDiv = document.getElementById('msg');
+    const server = err.response?.data || err.message;
+    msgDiv.innerHTML = '<div style="color:red;"><strong>Error al registrar:</strong> ' + JSON.stringify(server) + '</div>';
+  }
+});
+</script>
+</body>
+</html>

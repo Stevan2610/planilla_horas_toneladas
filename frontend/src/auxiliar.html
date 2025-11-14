@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Auxiliar - Planilla</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    // ✅ Configuración global de Axios
+    axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src';
+    axios.defaults.withCredentials = true; // permite enviar cookies de sesión
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Panel Auxiliar</h2>
+      <div class="actions">
+        <a href="registro_diario.html" class="btn">Registro Diario</a>
+        
+      
+        <button id="btnSalir" class="btn secondary">Salir</button>
+      </div>
+    </div>
+
+    <div id="userInfo" class="user-info"></div>
+
+    <table class="table" id="tablaRegistros">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Entrada</th>
+          <th>Salida</th>
+          <th>Bono Transporte</th>
+          <th>Bono Alimentación</th>
+          <th>Recargo Nocturno</th>
+          <th>HE Diurnas</th>
+          <th>HE Nocturnas</th>
+          <th>HE Dom/Fest</th>
+          <th>Toneladas</th>
+          <th>Ton Coteadas</th>
+          <th>Firma</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function loadUser() {
+      try {
+        const res = await axios.get(
+          'http://localhost/planilla_horas_toneladas/backend/src/index.php?path=auth/me',
+          { withCredentials: true }
+        );
+        const user = res.data.user;
+        const userInfoDiv = document.getElementById('userInfo');
+        userInfoDiv.innerHTML = `
+          <p><strong>Bienvenido:</strong> ${user.nombres} ${user.apellidos}</p>
+          <p><strong>Unidad Operativa:</strong> ${user.unidad_operativa}</p>
+        `;
+      } catch (e) {
+        console.error('Error al obtener el usuario', e);
+        // Solo redirige si es error 401 (no autorizado)
+        if (e.response?.status === 401) {
+          location.href = 'index.html';
+        } else {
+          // Mostrar error pero permitir continuar
+          const userInfoDiv = document.getElementById('userInfo');
+          userInfoDiv.innerHTML = `<p style="color:red;">⚠️ Error al cargar datos del usuario. Intenta recargar la página.</p>`;
+        }
+      }
+    }
+
+    async function loadRegistros() {
+      try {
+        const res = await axios.get('?path=registros/user', { withCredentials: true });
+        console.log('Respuesta del servidor:', res.data);
+
+        const rows = res.data?.data || [];
+        const tbody = document.querySelector('#tablaRegistros tbody');
+        tbody.innerHTML = '';
+
+        if (rows.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="12" style="text-align:center; color:gray; font-style:italic;">
+                No hay registros disponibles para esta quincena.
+              </td>
+            </tr>`;
+          return;
+        }
+
+        rows.forEach(r => {
+          const tr = document.createElement('tr');
+          const d = new Date(r.fecha);
+          if (d.getDay() === 0) tr.classList.add('dia-festivo');
+
+          tr.innerHTML = `
+            <td>${r.fecha}</td>
+            <td>${r.hora_entrada || ''}</td>
+            <td>${r.hora_salida || ''}</td>
+            <td>${r.bono_transporte || 0}</td>
+            <td>${r.bono_alimentacion || 0}</td>
+            <td>${r.recargo_nocturno || 0}</td>
+            <td>${r.he_diurnas || 0}</td>
+            <td>${r.he_nocturnas || 0}</td>
+            <td>${r.he_dom_fest || 0}</td>
+            <td>${r.toneladas || 0}</td>
+            <td>${r.ton_coteadas || 0}</td>
+            <td>${r.firma ? 'Sí' : ''}</td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        console.error(e);
+        if (e.response?.status === 401) {
+          location.href = 'index.html';
+        } else {
+          const tbody = document.querySelector('#tablaRegistros tbody');
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="12" style="text-align:center; color:red;">
+                Error al cargar los registros: ${e.response?.data?.error || e.message}. Intenta recargar.
+              </td>
+            </tr>`;
+        }
+      }
+    }
+
+    document.getElementById('btnSalir').addEventListener('click', async () => {
+      try {
+        await axios.post('?path=auth/logout');
+      } catch (e) {
+        console.error('Error al cerrar sesión', e);
+      } finally {
+        location.href = 'index.html';
+      }
+    });
+
+    loadUser();
+    loadRegistros();
+  </script>
+</body>
+</html>
