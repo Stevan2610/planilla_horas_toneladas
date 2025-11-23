@@ -15,7 +15,8 @@
 <body>
   <div class="container">
     <div class="header">
-      <h2>Panel Auxiliar</h2>
+      <h2>AUXILIAR</h2>
+      <h2>Reguistro Diario</h2>
       <div class="actions">
         <a href="registro_diario.html" class="btn">Registro Diario</a>
         
@@ -37,7 +38,9 @@
           <th>Recargo Nocturno</th>
           <th>HE Diurnas</th>
           <th>HE Nocturnas</th>
-          <th>HE Dom/Fest</th>
+          <th>H Dom/Fest (7h 20m)</th>
+          <th>HE Diurnas Dom/Fest</th>
+          <th>HE Nocturnas Dom/Fest</th>
           <th>Toneladas</th>
           <th>Ton Coteadas</th>
           <th>Firma</th>
@@ -85,7 +88,7 @@
         if (rows.length === 0) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="12" style="text-align:center; color:gray; font-style:italic;">
+              <td colspan="14" style="text-align:center; color:gray; font-style:italic;">
                 No hay registros disponibles para esta quincena.
               </td>
             </tr>`;
@@ -107,6 +110,8 @@
             <td>${r.he_diurnas || 0}</td>
             <td>${r.he_nocturnas || 0}</td>
             <td>${r.he_dom_fest || 0}</td>
+            <td>${r.he_diurnas_dom || 0}</td>
+            <td>${r.he_nocturnas_dom || 0}</td>
             <td>${r.toneladas || 0}</td>
             <td>${r.ton_coteadas || 0}</td>
             <td>${r.firma ? 'Sí' : ''}</td>`;
@@ -120,7 +125,7 @@
           const tbody = document.querySelector('#tablaRegistros tbody');
           tbody.innerHTML = `
             <tr>
-              <td colspan="12" style="text-align:center; color:red;">
+              <td colspan="14" style="text-align:center; color:red;">
                 Error al cargar los registros: ${e.response?.data?.error || e.message}. Intenta recargar.
               </td>
             </tr>`;

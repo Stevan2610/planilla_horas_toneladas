@@ -63,6 +63,10 @@ switch ($path) {
         require __DIR__ . '/controllers/RegistroController.php';
         (new RegistroController($pdo))->update();
         break;
+    case 'registros/summary':
+        require __DIR__ . '/controllers/RegistroController.php';
+        (new RegistroController($pdo))->getSummaryByUser();
+        break;
     case 'adicionales/all':
         require __DIR__ . '/controllers/AdicionalController.php';
         (new AdicionalController($pdo))->getAll();

@@ -44,9 +44,34 @@ canvas.addEventListener('mousemove', (e)=>{ if(!drawing) return; const rect=canv
 document.getElementById('btnClear').addEventListener('click', ()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); });
 
 function isHoliday(dateStr){
-  // stub: you can expand to check a list of holidays
   const d = new Date(dateStr);
-  return d.getDay()===0;
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const dayOfWeek = d.getDay();
+  
+  // Domingos siempre son festivos
+  if(dayOfWeek === 0) return true;
+  
+  // Festivos fijos en Colombia
+  const fixedHolidays = [
+    '1-1',   // Año Nuevo
+    '1-8',   // Epifanía
+    '3-25',  // San José (trasladable)
+    '5-1',   // Día del Trabajo
+    '6-3',   // Corpus Christi (trasladable)
+    '6-10',  // Sagrado Corazón (trasladable)
+    '7-1',   // San Pedro y San Pablo (trasladable)
+    '7-20',  // Grito de Independencia
+    '8-7',   // Batalla de Boyacá
+    '8-15',  // Asunción de María
+    '11-1',  // Día de Todos los Santos
+    '11-11', // Conmemoración de Difuntos (trasladable)
+    '12-8',  // Inmaculada Concepción
+    '12-25'  // Navidad
+  ];
+  
+  const dateKey = `${month}-${day}`;
+  return fixedHolidays.includes(dateKey);
 }
 
 function timeToMinutes(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
@@ -97,17 +122,23 @@ document.getElementById('btnGuardar').addEventListener('click', async ()=>{
   he_diurnas = minutesToHours(he_diurnas);
   he_nocturnas = minutesToHours(he_nocturnas);
 
-  //horas dominicales
+  //horas dominicales/festivas (máximo 7h 20min = 440 minutos)
   let he_dom_fest=0, he_diurnas_dom=0, he_nocturnas_dom=0;
   if (isHoliday(fecha)){
-    he_dom_fest = totalHours;
+    const maxDomFestMin = 7*60 + 20; // 7h 20min en minutos
     
-    for(let t=entradaMin; t<entradaMin+totalMin; t++){
+    // Las primeras 7h 20min son H Dom/Fest
+    const domFestMin = Math.min(totalMin, maxDomFestMin);
+    he_dom_fest = minutesToHours(domFestMin);
+    
+    // Las horas adicionales después de 7h 20min se dividen en diurnas y nocturnas
+    let extraDiurnas = 0, extraNocturnas = 0;
+    for(let t=entradaMin + maxDomFestMin; t<entradaMin+totalMin; t++){
       const minute = t % (24*60);
-      if(minute>=noctStart || minute<noctEnd) he_nocturnas_dom++; else he_diurnas_dom++;
+      if(minute>=noctStart || minute<noctEnd) extraNocturnas++; else extraDiurnas++;
     }
-    he_diurnas_dom = minutesToHours(he_diurnas_dom);
-    he_nocturnas_dom = minutesToHours(he_nocturnas_dom);
+    he_diurnas_dom = minutesToHours(extraDiurnas);
+    he_nocturnas_dom = minutesToHours(extraNocturnas);
   }
 
   const toneladas = parseFloat(document.getElementById('toneladas').value) || 0;

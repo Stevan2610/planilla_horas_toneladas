@@ -71,6 +71,57 @@ class RegistroController {
         echo json_encode(['data'=>$rows]);
     }
 
+    public function getSummaryByUser(){
+        // Retorna resumen de registros por auxiliar en un rango de fechas
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        if (empty($_SESSION['user'])) { http_response_code(401); echo json_encode(['error'=>'No autorizado']); exit; }
+        
+        $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+        $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
+        
+        // Validar formato de fechas
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+            http_response_code(400);
+            echo json_encode(['error'=>'Formato de fecha inválido']);
+            exit;
+        }
+        
+        $stmt = $this->pdo->prepare('
+            SELECT 
+                u.id,
+                u.nombres,
+                u.apellidos,
+                u.unidad_operativa,
+                SUM(r.bono_transporte) as bono_transporte,
+                SUM(r.bono_alimentacion) as bono_alimentacion,
+                SUM(r.recargo_nocturno) as recargo_nocturno,
+                SUM(r.he_diurnas) as he_diurnas,
+                SUM(r.he_nocturnas) as he_nocturnas,
+                SUM(r.he_dom_fest) as he_dom_fest,
+                SUM(r.he_diurnas_dom) as he_diurnas_dom,
+                SUM(r.he_nocturnas_dom) as he_nocturnas_dom,
+                SUM(r.toneladas) as toneladas,
+                SUM(r.ton_coteadas) as ton_coteadas,
+                COUNT(r.id) as registros_count
+            FROM users u
+            LEFT JOIN registros r ON u.id = r.user_id AND r.fecha BETWEEN ? AND ?
+            WHERE u.cargo = "auxiliar"
+            GROUP BY u.id, u.nombres, u.apellidos, u.unidad_operativa
+            ORDER BY u.nombres
+        ');
+        
+        try {
+            $stmt->execute([$fechaInicio, $fechaFin]);
+            $rows = $stmt->fetchAll();
+            echo json_encode(['data'=>$rows, 'fecha_inicio'=>$fechaInicio, 'fecha_fin'=>$fechaFin]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error'=>'Error al obtener resumen', 'message'=>$e->getMessage()]);
+        }
+    }
+
     public function update(){
         if (session_status() === PHP_SESSION_NONE) {
             session_start();

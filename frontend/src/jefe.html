@@ -11,11 +11,18 @@
 </script>
 </head><body>
 <div class="container">
-  <div class="header"><h2>Novedades de Nómina</h2>
-    <div class="actions"><a href="adicionales_cali.html" class="btn">Adicionales</a><button id="btnSalir" class="btn secondary">Salir</button></div>
+  <div class="header"><h2>JEFE</h2>
+    <h2>Novedades de Nómina</h2>
+    <div class="actions">
+      <a href="adicionales_cali.html" class="btn">Adicionales</a><button id="btnSalir" class="btn secondary">Salir</button></div>
+  </div>
+  <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
+    <label>Fecha Inicio: <input type="date" id="fechaInicio" style="padding: 8px;"></label>
+    <label>Fecha Fin: <input type="date" id="fechaFin" style="padding: 8px;"></label>
+    <button id="btnFiltrar" class="btn">Filtrar</button>
   </div>
   <table class="table" id="tablaJefe"><thead>
-    <tr><th>Nombre</th><th>Unidad</th><th>Entrada</th><th>Salida</th><th>Bono Transporte</th><th>Bono Alimentación</th><th>Recargo</th><th>HE Diurnas</th><th>HE Nocturnas</th><th>HE Dom/Fest</th><th>Ton</th><th>Ton Coteadas</th><th>Acción</th></tr>
+    <tr><th>Nombre</th><th>Unidad</th><th>Bono Transporte</th><th>Bono Alimentación</th><th>Recargo</th><th>HE Diurnas</th><th>HE Nocturnas</th><th>H Dom/Fest</th><th>HE Diurnas Dom/Fest</th><th>HE Nocturnas Dom/Fest</th><th>Ton</th><th>Ton Coteadas</th><th>Registros</th><th>Acción</th></tr>
   </thead><tbody></tbody></table>
 </div>
 <script>
@@ -29,15 +36,44 @@ document.getElementById('btnSalir').addEventListener('click', async ()=>{
   }
 });
 
+// Inicializar fechas
+function initializeDates() {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  
+  document.getElementById('fechaInicio').valueAsDate = firstDay;
+  document.getElementById('fechaFin').valueAsDate = lastDay;
+}
+
 async function load(){
+  const fechaInicio = document.getElementById('fechaInicio').value;
+  const fechaFin = document.getElementById('fechaFin').value;
+  
   try{
-    const res = await axios.get('?path=registros/all');
+    const res = await axios.get(`?path=registros/summary&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`);
     const rows = res.data.data;
     const tbody = document.querySelector('#tablaJefe tbody');
     tbody.innerHTML='';
+    
     rows.forEach(r=>{
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.nombres} ${r.apellidos}</td><td>${r.unidad_operativa}</td><td>${r.hora_entrada}</td><td>${r.hora_salida}</td><td>${r.bono_transporte}</td><td>${r.bono_alimentacion}</td><td>${r.recargo_nocturno}</td><td>${r.he_diurnas}</td><td>${r.he_nocturnas}</td><td>${r.he_dom_fest}</td><td>${r.toneladas}</td><td>${r.ton_coteadas}</td><td><a class="btn" href="auxiliar.html">Ver/Editar</a></td>`;
+      tr.innerHTML = `
+        <td>${r.nombres} ${r.apellidos}</td>
+        <td>${r.unidad_operativa}</td>
+        <td>${parseFloat(r.bono_transporte || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.bono_alimentacion || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.recargo_nocturno || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_diurnas || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_nocturnas || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_dom_fest || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_diurnas_dom || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_nocturnas_dom || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.toneladas || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.ton_coteadas || 0).toFixed(2)}</td>
+        <td>${r.registros_count}</td>
+        <td><a class="btn" href="auxiliar.html?user_id=${r.id}">Ver/Editar</a></td>
+      `;
       tbody.appendChild(tr);
     });
   }catch(e){ 
@@ -45,10 +81,16 @@ async function load(){
     if(e.response?.status===401) location.href='index.html'; 
     else {
       const tbody = document.querySelector('#tablaJefe tbody');
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error al cargar datos. Intenta nuevamente.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; color:red;">Error al cargar datos. Intenta nuevamente.</td></tr>`;
     }
   }
 }
+
+// Event listeners
+document.getElementById('btnFiltrar').addEventListener('click', load);
+
+// Cargar al iniciar
+initializeDates();
 load();
 </script>
 </body></html>
