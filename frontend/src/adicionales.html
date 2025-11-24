@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Adicionales - Cali</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+  // Configuración global de Axios
+  axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src';
+  axios.defaults.withCredentials = true; // permite enviar cookies/sesiones
+</script>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>Adicionales - Cali</h2>
+    <div class="actions">
+      <button id="btnGuardar" class="btn">Guardar</button>
+      <a href="jefe.html" class="btn secondary">Volver</a>
+    </div>
+  </div>
+
+  <table class="table" id="tablaAdic">
+    <thead>
+      <tr>
+        <th>Unidad</th>
+        <th>Servicio</th>
+        <th>Cantidad</th>
+        <th>Valor Unitario</th>
+        <th>Valor Total</th>
+        <th>Acción</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button id="btnAddRow" class="btn">Agregar fila</button>
+</div>
+
+<script>
+// Carga los "adicionales" generados desde registros
+async function load(){
+  try {
+    const res = await axios.get('index.php?path=adicionales/fromRegistros');
+    const rows = res.data.data || [];
+    const tbody = document.querySelector('#tablaAdic tbody');
+    tbody.innerHTML='';
+
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <select class="unidad">
+            <option value="Cali" ${r.unidad_operativa==='Cali'?'selected':''}>Cali</option>
+            <option value="Pereira" ${r.unidad_operativa==='Pereira'?'selected':''}>Pereira</option>
+          </select>
+        </td>
+        <td><input class="servicio input" value="${r.servicio}" readonly></td>
+        <td><input class="cantidad input" value="${r.cantidad}"></td>
+        <td><input class="valor input" value="0"></td>
+        <td class="valor_total">0</td>
+        <td><button class="btn btnDel">Eliminar</button></td>`;
+      tbody.appendChild(tr);
+    });
+
+    attachListeners();
+  } catch (e) {
+    console.error(e);
+    alert('Error cargando datos desde registros');
+  }
+}
+
+function attachListeners(){
+  // recalcular valor_total cuando cambie cantidad o valor unitario
+  const tbody = document.querySelector('#tablaAdic tbody');
+
+  tbody.querySelectorAll('.cantidad, .valor').forEach(input=>{
+    input.removeEventListener('input', onInputChange); // prevenir múltiples listeners
+    input.addEventListener('input', onInputChange);
+  });
+}
+
+function onInputChange(e){
+  const tr = e.target.closest('tr');
+  const cantidad = parseFloat(tr.querySelector('.cantidad').value) || 0;
+  const valor = parseFloat(tr.querySelector('.valor').value) || 0;
+  tr.querySelector('.valor_total').textContent = (cantidad * valor).toFixed(2);
+}
+
+// Agregar fila manualmente
+document.getElementById('btnAddRow').addEventListener('click', ()=>{
+  const tbody = document.querySelector('#tablaAdic tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><select class="unidad"><option value="Cali">Cali</option><option value="Pereira">Pereira</option></select></td>
+    <td><input class="servicio input"></td>
+    <td><input class="cantidad input" value="0"></td>
+    <td><input class="valor input" value="0"></td>
+    <td class="valor_total">0</td>
+    <td><button class="btn btnDel">Eliminar</button></td>`;
+  tbody.appendChild(tr);
+  attachListeners();
+});
+
+// Eliminar fila (delegación)
+document.getElementById('tablaAdic').addEventListener('click', (e)=>{
+  if(e.target.classList.contains('btnDel')) e.target.closest('tr').remove();
+});
+
+// Guardar la tabla adicionales (TRUNCATE + INSERT)
+document.getElementById('btnGuardar').addEventListener('click', async ()=>{
+  const rows = [...document.querySelectorAll('#tablaAdic tbody tr')].map(tr=>{
+    const unidad = tr.querySelector('.unidad').value;
+    const servicio = tr.querySelector('.servicio').value;
+    const cantidad = parseFloat(tr.querySelector('.cantidad').value)||0;
+    const valor_unitario = parseFloat(tr.querySelector('.valor').value)||0;
+    return {unidad_operativa: unidad, servicio, cantidad, valor_unitario};
+  });
+
+  try{
+    await axios.post('index.php?path=adicionales/save', rows);
+    alert('Guardado correctamente');
+    load(); // recargar desde registros (en tu flujo probablemente prefieras recargar getAll)
+  }catch(e){
+    console.error(e);
+    alert('Error al guardar');
+  }
+});
+
+// Inicializar
+load();
+</script>
+</body>
+</html>

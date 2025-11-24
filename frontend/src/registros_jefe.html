@@ -1,0 +1,252 @@
+<!doctype html><html><head>
+<meta charset="utf-8"><title>Registros del Auxiliar - Jefe</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+  axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src';
+  axios.defaults.withCredentials = true;
+</script>
+</head><body>
+<div class="container">
+  <div class="header">
+    <h2 id="tituloAuxiliar">Registros del Auxiliar</h2>
+    <a href="jefe.html" class="btn secondary">Volver a Panel Jefe</a>
+  </div>
+  <div id="msg" style="margin:8px 0;color:#a00;font-weight:600"></div>
+  
+  <table class="table" id="tablaRegistros">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Entrada</th>
+        <th>Salida</th>
+        <th>Bono Transporte</th>
+        <th>Bono Alimentación</th>
+        <th>Recargo</th>
+        <th>HE Diurnas</th>
+        <th>HE Nocturnas</th>
+        <th>H Dom/Fest</th>
+        <th>HE Diurnas Dom/Fest</th>
+        <th>HE Nocturnas Dom/Fest</th>
+        <th>Toneladas</th>
+        <th>Ton Coteadas</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+// Obtener user_id de la URL
+const params = new URLSearchParams(window.location.search);
+const userId = params.get('user_id');
+const nombreAuxiliar = params.get('nombre');
+
+if (!userId) {
+  alert('Usuario no especificado');
+  location.href = 'jefe.html';
+}
+
+// Actualizar título
+document.getElementById('tituloAuxiliar').innerText = `Registros de ${nombreAuxiliar || 'Auxiliar'}`;
+
+// Verificar sesión y permisos (solo 'jefe' o 'admin')
+async function ensureJefe() {
+  try {
+    const resp = await axios.get('?path=auth/me');
+    const user = resp.data?.user;
+    const cargo = (user?.cargo || '').toLowerCase();
+    if (!user || (cargo !== 'jefe' && cargo !== 'admin')) {
+      alert('Acceso no autorizado: se requiere usuario con cargo JEFE o ADMIN');
+      location.href = 'index.html';
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error verificando sesión', err);
+    const status = err.response?.status;
+    const data = err.response?.data;
+    const txt = status ? `Error verificando sesión (${status})` : 'Error verificando sesión';
+    document.getElementById('msg').innerText = txt + (data ? ' — ' + JSON.stringify(data) : '');
+    // si es 401/403 redirigir a login
+    if (status === 401 || status === 403) location.href = 'index.html';
+    return false;
+  }
+}
+
+async function load() {
+  try {
+    // Usar la misma convención que el resto de la app (baseURL + query)
+    const res = await axios.get(`?path=registros/user&user_id=${userId}`);
+    const registros = res.data?.data || [];
+    const tbody = document.querySelector('#tablaRegistros tbody');
+    tbody.innerHTML = '';
+    
+    if (registros.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Sin registros</td></tr>';
+      return;
+    }
+    
+    registros.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.fecha}</td>
+        <td>${r.hora_entrada || ''}</td>
+        <td>${r.hora_salida || ''}</td>
+        <td>${parseFloat(r.bono_transporte || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.bono_alimentacion || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.recargo_nocturno || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_diurnas || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_nocturnas || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_dom_fest || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_diurnas_dom || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.he_nocturnas_dom || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.toneladas || 0).toFixed(2)}</td>
+        <td>${parseFloat(r.ton_coteadas || 0).toFixed(2)}</td>
+        <td><button class="btn secondary edit-registro" data-id="${r.id}">Editar</button></td>
+      `;
+      tbody.appendChild(tr);
+      
+      tr.querySelector('.edit-registro').addEventListener('click', () => {
+        showEditForm(r);
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    const status = err.response?.status;
+    const data = err.response?.data;
+    if (status === 401) {
+      document.getElementById('msg').innerText = 'No autorizado (401). Inicie sesión nuevamente.';
+      location.href = 'index.html';
+      return;
+    }
+    const message = `Error al cargar registros${status ? ' (' + status + ')' : ''}: ${err.message}`;
+    document.getElementById('msg').innerText = message + (data ? ' — ' + JSON.stringify(data) : '');
+    // También mostrar detalle en alert para pruebas rápidas
+    alert(message + (data ? '\n' + JSON.stringify(data) : ''));
+  }
+}
+
+function showEditForm(registro) {
+  let form = document.getElementById('editRegistroForm');
+  if (form) form.remove();
+  
+  form = document.createElement('div');
+  form.id = 'editRegistroForm';
+  form.style = 'padding:16px; border:2px solid #333; margin:16px 0; background:#f9f9f9; border-radius:4px;';
+  form.innerHTML = `
+    <h3>Editar Registro - ${registro.fecha}</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label>Hora Entrada</label>
+        <input id="er_hora_entrada" type="time" class="input" />
+      </div>
+      <div>
+        <label>Hora Salida</label>
+        <input id="er_hora_salida" type="time" class="input" />
+      </div>
+      <div>
+        <label>Toneladas</label>
+        <input id="er_toneladas" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>Ton Coteadas</label>
+        <input id="er_ton_coteadas" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>Bono Transporte</label>
+        <input id="er_bono_transporte" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>Bono Alimentación</label>
+        <input id="er_bono_alimentacion" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>Recargo Nocturno</label>
+        <input id="er_recargo_nocturno" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>HE Diurnas</label>
+        <input id="er_he_diurnas" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>HE Nocturnas</label>
+        <input id="er_he_nocturnas" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>HE Dom/Fest</label>
+        <input id="er_he_dom_fest" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>HE Diurnas Dom/Fest</label>
+        <input id="er_he_diurnas_dom" type="number" step="0.01" class="input" />
+      </div>
+      <div>
+        <label>HE Nocturnas Dom/Fest</label>
+        <input id="er_he_nocturnas_dom" type="number" step="0.01" class="input" />
+      </div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button id="btnSaveRegistro" class="btn">Guardar Cambios</button>
+      <button id="btnCancelRegistro" class="btn secondary">Cancelar</button>
+    </div>
+  `;
+  
+  const container = document.querySelector('.container');
+  container.insertBefore(form, container.querySelector('.table'));
+  
+  // Cargar valores actuales
+  document.getElementById('er_hora_entrada').value = registro.hora_entrada || '';
+  document.getElementById('er_hora_salida').value = registro.hora_salida || '';
+  document.getElementById('er_toneladas').value = registro.toneladas || 0;
+  document.getElementById('er_ton_coteadas').value = registro.ton_coteadas || 0;
+  document.getElementById('er_bono_transporte').value = registro.bono_transporte || 0;
+  document.getElementById('er_bono_alimentacion').value = registro.bono_alimentacion || 0;
+  document.getElementById('er_recargo_nocturno').value = registro.recargo_nocturno || 0;
+  document.getElementById('er_he_diurnas').value = registro.he_diurnas || 0;
+  document.getElementById('er_he_nocturnas').value = registro.he_nocturnas || 0;
+  document.getElementById('er_he_dom_fest').value = registro.he_dom_fest || 0;
+  document.getElementById('er_he_diurnas_dom').value = registro.he_diurnas_dom || 0;
+  document.getElementById('er_he_nocturnas_dom').value = registro.he_nocturnas_dom || 0;
+  
+  document.getElementById('btnCancelRegistro').addEventListener('click', () => form.remove());
+  
+  document.getElementById('btnSaveRegistro').addEventListener('click', async () => {
+    const payload = {
+      id: registro.id,
+      hora_entrada: document.getElementById('er_hora_entrada').value,
+      hora_salida: document.getElementById('er_hora_salida').value,
+      toneladas: parseFloat(document.getElementById('er_toneladas').value) || 0,
+      ton_coteadas: parseFloat(document.getElementById('er_ton_coteadas').value) || 0,
+      bono_transporte: parseFloat(document.getElementById('er_bono_transporte').value) || 0,
+      bono_alimentacion: parseFloat(document.getElementById('er_bono_alimentacion').value) || 0,
+      recargo_nocturno: parseFloat(document.getElementById('er_recargo_nocturno').value) || 0,
+      he_diurnas: parseFloat(document.getElementById('er_he_diurnas').value) || 0,
+      he_nocturnas: parseFloat(document.getElementById('er_he_nocturnas').value) || 0,
+      he_dom_fest: parseFloat(document.getElementById('er_he_dom_fest').value) || 0,
+      he_diurnas_dom: parseFloat(document.getElementById('er_he_diurnas_dom').value) || 0,
+      he_nocturnas_dom: parseFloat(document.getElementById('er_he_nocturnas_dom').value) || 0
+    };
+    
+    try {
+      const res = await axios.post('index.php?path=registros/update', payload);
+      if (res.data?.success) {
+        alert('Registro actualizado correctamente');
+        form.remove();
+        load();
+      } else {
+        alert('Error: ' + JSON.stringify(res.data));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al actualizar registro');
+    }
+  });
+}
+
+// Cargar registros al iniciar (verificar sesión/permiso primero)
+ensureJefe().then(ok => { if (ok) load(); });
+</script>
+</body></html>

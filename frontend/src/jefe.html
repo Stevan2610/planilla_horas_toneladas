@@ -14,7 +14,7 @@
   <div class="header"><h2>JEFE</h2>
     <h2>Novedades de Nómina</h2>
     <div class="actions">
-      <a href="adicionales_cali.html" class="btn">Adicionales</a><button id="btnSalir" class="btn secondary">Salir</button></div>
+      <a href="adicionales.html" class="btn">Adicionales</a><button id="btnSalir" class="btn secondary">Salir</button></div>
   </div>
   <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
     <label>Fecha Inicio: <input type="date" id="fechaInicio" style="padding: 8px;"></label>
@@ -58,8 +58,9 @@ async function load(){
     
     rows.forEach(r=>{
       const tr = document.createElement('tr');
+      const nombreCompleto = `${r.nombres} ${r.apellidos}`;
       tr.innerHTML = `
-        <td>${r.nombres} ${r.apellidos}</td>
+        <td>${nombreCompleto}</td>
         <td>${r.unidad_operativa}</td>
         <td>${parseFloat(r.bono_transporte || 0).toFixed(2)}</td>
         <td>${parseFloat(r.bono_alimentacion || 0).toFixed(2)}</td>
@@ -72,7 +73,7 @@ async function load(){
         <td>${parseFloat(r.toneladas || 0).toFixed(2)}</td>
         <td>${parseFloat(r.ton_coteadas || 0).toFixed(2)}</td>
         <td>${r.registros_count}</td>
-        <td><a class="btn" href="auxiliar.html?user_id=${r.id}">Ver/Editar</a></td>
+        <td><a class="btn" href="registros_jefe.html?user_id=${r.id}&nombre=${encodeURIComponent(nombreCompleto)}">Ver/Editar</a></td>
       `;
       tbody.appendChild(tr);
     });

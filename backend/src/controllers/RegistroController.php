@@ -51,8 +51,9 @@ class RegistroController {
         // Si viene X-User-Id en header (admin consultando otro usuario)
         $userId = $_GET['user_id'] ?? $_SERVER['HTTP_X_USER_ID'] ?? $_SESSION['user']['id'];
         
-        // Solo admin puede ver registros de otros usuarios
-        if ((int)$userId !== (int)$_SESSION['user']['id'] && ($_SESSION['user']['cargo'] ?? '') !== 'admin') {
+        // Permitir que el propio usuario, el 'admin' o el 'jefe' vean registros de otros usuarios
+        $role = $_SESSION['user']['cargo'] ?? '';
+        if ((int)$userId !== (int)$_SESSION['user']['id'] && $role !== 'admin' && $role !== 'jefe') {
             http_response_code(403);
             echo json_encode(['error'=>'No autorizado para ver registros de otro usuario']);
             exit;

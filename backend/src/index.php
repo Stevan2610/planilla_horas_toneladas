@@ -40,9 +40,9 @@ switch ($path) {
         (new AuthController($pdo))->register();
         break;
     case 'auth/login':
-    require __DIR__ . '/controllers/AuthController.php';
-    (new AuthController($pdo))->login();
-    break;
+        require __DIR__ . '/controllers/AuthController.php';
+        (new AuthController($pdo))->login();
+        break;
     case 'auth/logout':
         require __DIR__ . '/controllers/AuthController.php';
         (new AuthController($pdo))->logout();
@@ -67,6 +67,13 @@ switch ($path) {
         require __DIR__ . '/controllers/RegistroController.php';
         (new RegistroController($pdo))->getSummaryByUser();
         break;
+
+    // <-- NUEVO ENDPOINT: obtiene los "adicionales" sintetizados desde registros
+    case 'adicionales/fromRegistros':
+        require __DIR__ . '/controllers/AdicionalController.php';
+        (new AdicionalController($pdo))->fromRegistros();
+        break;
+
     case 'adicionales/all':
         require __DIR__ . '/controllers/AdicionalController.php';
         (new AdicionalController($pdo))->getAll();

@@ -1,166 +1,294 @@
-<!doctype html><html><head>
-<meta charset="utf-8"><title>Registro Diario</title>
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Registro Diario</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="assets/css/styles.css">
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script>
   // Configuración global de Axios
-    axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend'; //cambio la direccion estaba mal por eso no daba asi que esta es la bueno y ya guarda los datos de los aux
-
-  axios.defaults.withCredentials = true; // permite enviar cookies/sesiones
+  axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend';
+  axios.defaults.withCredentials = true;
 </script>
-</head><body>
+
+</head>
+<body>
 <div class="container">
-  <div class="header"><h2>Registro Diario</h2><a href="auxiliar.html" class="btn secondary">Volver</a></div>
+  <div class="header">
+    <h2>Registro Diario</h2>
+    <a href="auxiliar.html" class="btn secondary">Volver</a>
+  </div>
+
   <div id="msg"></div>
+
   <div class="form-row">
     <input id="fecha" type="date" class="input">
     <input id="hora_entrada" type="time" class="input">
     <input id="hora_salida" type="time" class="input">
   </div>
+
   <div class="form-row">
     <input id="placa" class="input" placeholder="Placa vehículo">
     <input id="numero_folio" class="input" placeholder="Número de folio">
   </div>
+
   <div class="form-row">
     <input id="toneladas" class="input" placeholder="Toneladas">
     <input id="ton_coteadas" class="input" placeholder="Ton Coteadas">
   </div>
-  <div style="margin:8px 0;"><label>Firma validación (dibuje):</label><div class="canvas-sign"><canvas id="canvas" width="400" height="120"></canvas><br><button id="btnClear" class="btn secondary">Borrar</button></div></div>
+
+  <div style="margin:8px 0;">
+    <label>Firma validación (dibuje):</label>
+    <div class="canvas-sign">
+      <canvas id="canvas" width="400" height="120"></canvas><br>
+      <button id="btnClear" class="btn secondary">Borrar</button>
+    </div>
+  </div>
+
   <div class="form-row">
     <button id="btnGuardar" class="btn">Guardar</button>
   </div>
 </div>
+
 <script>
-// Simple canvas signature nt
+/* ============================================================
+   FIRMA CANVAS
+============================================================ */
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let drawing=false;
+
 canvas.addEventListener('mousedown', ()=>drawing=true);
 canvas.addEventListener('mouseup', ()=>drawing=false);
 canvas.addEventListener('mouseout', ()=>drawing=false);
-canvas.addEventListener('mousemove', (e)=>{ if(!drawing) return; const rect=canvas.getBoundingClientRect(); const x=e.clientX-rect.left; const y=e.clientY-rect.top; ctx.fillRect(x,y,2,2); });
-document.getElementById('btnClear').addEventListener('click', ()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); });
+canvas.addEventListener('mousemove', (e)=>{
+  if(!drawing) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const y=e.clientY-rect.top;
+  ctx.fillRect(x,y,2,2);
+});
 
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+});
+
+/* ============================================================
+   FECHAS FESTIVAS COLOMBIA
+============================================================ */
 function isHoliday(dateStr){
   const d = new Date(dateStr);
   const month = d.getMonth() + 1;
   const day = d.getDate();
-  const dayOfWeek = d.getDay();
-  
-  // Domingos siempre son festivos
-  if(dayOfWeek === 0) return true;
-  
-  // Festivos fijos en Colombia
-  const fixedHolidays = [
-    '1-1',   // Año Nuevo
-    '1-8',   // Epifanía
-    '3-25',  // San José (trasladable)
-    '5-1',   // Día del Trabajo
-    '6-3',   // Corpus Christi (trasladable)
-    '6-10',  // Sagrado Corazón (trasladable)
-    '7-1',   // San Pedro y San Pablo (trasladable)
-    '7-20',  // Grito de Independencia
-    '8-7',   // Batalla de Boyacá
-    '8-15',  // Asunción de María
-    '11-1',  // Día de Todos los Santos
-    '11-11', // Conmemoración de Difuntos (trasladable)
-    '12-8',  // Inmaculada Concepción
-    '12-25'  // Navidad
+  const dow = d.getDay();
+
+  if(dow === 0) return true;
+
+  const fixed = [
+    '1-1','1-8','3-25','5-1','6-3','6-10','7-1',
+    '7-20','8-7','8-15','11-1','11-11','12-8','12-25'
   ];
-  
-  const dateKey = `${month}-${day}`;
-  return fixedHolidays.includes(dateKey);
+
+  return fixed.includes(`${month}-${day}`);
 }
 
+// evaluar si fecha generada minuto a minuto es festivo
+function isHolidayDate(dateObj){
+  const month = dateObj.getMonth() + 1;
+  const day = dateObj.getDate();
+  const dow = dateObj.getDay();
+
+  if(dow === 0) return true;
+
+  const fixed = [
+    '1-1','1-8','3-25','5-1','6-3','6-10','7-1',
+    '7-20','8-7','8-15','11-1','11-11','12-8','12-25'
+  ];
+
+  return fixed.includes(`${month}-${day}`);
+}
+
+/* ============================================================
+   FUNCIONES TIEMPO
+============================================================ */
 function timeToMinutes(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
 function minutesToHours(m){ return Math.max(0, Math.round((m/60)*100)/100); }
 
+/* ============================================================
+   GUARDAR REGISTRO
+============================================================ */
 document.getElementById('btnGuardar').addEventListener('click', async ()=>{
+
   const fecha = document.getElementById('fecha').value;
   const hora_entrada = document.getElementById('hora_entrada').value;
   const hora_salida = document.getElementById('hora_salida').value;
-  if(!fecha || !hora_entrada || !hora_salida) { alert('Complete fecha y horas'); return; }
+
+  if(!fecha || !hora_entrada || !hora_salida){
+    alert('Complete fecha y horas');
+    return;
+  }
 
   const entradaMin = timeToMinutes(hora_entrada);
-  const salidaMin = timeToMinutes(hora_salida);
+  const salidaMin  = timeToMinutes(hora_salida);
+
   let totalMin = salidaMin - entradaMin;
-  if(totalMin < 0) totalMin += 24*60; 
+  if(totalMin < 0) totalMin += 24*60;
+
   const totalHours = totalMin/60;
 
-  // Bono transporte y alimentacion por fecha
-  const bono_transporte = 3000;
-  const bono_alimentacion = 5000;
+  /* ----------------------------
+     BONOS FIJOS
+  ---------------------------- */
+  const bono_transporte = 1;
+  const bono_alimentacion = 1;
 
-  // recargo nocturno
+  /* ----------------------------
+     RECARGO NOCTURNO
+  ---------------------------- */
   let recargo_nocturno = 0;
   const noctStart = 21*60;
-  const noctEnd = 6*60;
+  const noctEnd   = 6*60;
   let noctMin = 0;
 
   for(let t=entradaMin; t<entradaMin+totalMin; t++){
-    const minute = t % (24*60);
-    if(minute>=noctStart || minute<noctEnd){
+    const minute = t%(24*60);
 
+    if(minute>=noctStart || minute<noctEnd){
       const d = new Date(fecha);
       const isSun = d.getDay()===0;
-      const hour = Math.floor(minute/60);
       if(!(isSun && minute<6*60)) noctMin++;
     }
   }
-  recargo_nocturno = minutesToHours(noctMin)*1000; // valor por recargo en pesos por hora
-  let he_diurnas=0, he_nocturnas=0;
-  const normalThreshold = 8*60;
-  const extraMin = Math.max(0, totalMin - normalThreshold);
- 
-  for(let t=entradaMin+normalThreshold; t<entradaMin+totalMin; t++){
+
+  recargo_nocturno = minutesToHours(noctMin)*1;
+
+  /* ----------------------------
+     HORAS EXTRA NORMALES
+  ---------------------------- */
+  let he_diurnas = 0;
+let he_nocturnas = 0;
+
+const normalThreshold = 8*60;
+const extraMin = Math.max(0, totalMin - normalThreshold);
+
+// ¿La fecha base es festivo/domingo?
+const esFestivoBase = isHoliday(fecha);
+
+// Si es festivo/domingo, NO calcular horas extra normales
+if (!esFestivoBase) {
+
+  // Solo calcular horas extra normales si NO es festivo completo
+  for (let t = entradaMin + normalThreshold; t < entradaMin + totalMin; t++) {
     const minute = t % (24*60);
-    if(minute>=noctStart || minute<noctEnd) he_nocturnas++;
-    else he_diurnas++;
+    if (minute >= noctStart || minute < noctEnd)
+      he_nocturnas++;
+    else
+      he_diurnas++;
   }
+
   he_diurnas = minutesToHours(he_diurnas);
   he_nocturnas = minutesToHours(he_nocturnas);
+  
+}
 
-  //horas dominicales/festivas (máximo 7h 20min = 440 minutos)
-  let he_dom_fest=0, he_diurnas_dom=0, he_nocturnas_dom=0;
-  if (isHoliday(fecha)){
-    const maxDomFestMin = 7*60 + 20; // 7h 20min en minutos
-    
-    // Las primeras 7h 20min son H Dom/Fest
-    const domFestMin = Math.min(totalMin, maxDomFestMin);
-    he_dom_fest = minutesToHours(domFestMin);
-    
-    // Las horas adicionales después de 7h 20min se dividen en diurnas y nocturnas
-    let extraDiurnas = 0, extraNocturnas = 0;
-    for(let t=entradaMin + maxDomFestMin; t<entradaMin+totalMin; t++){
-      const minute = t % (24*60);
-      if(minute>=noctStart || minute<noctEnd) extraNocturnas++; else extraDiurnas++;
+  /* ============================================================
+     NUEVA LÓGICA — HORAS DOMINICALES / FESTIVAS CRUZADAS
+  ============================================================ */
+  let he_dom_fest = 0;
+  let he_diurnas_dom = 0;
+  let he_nocturnas_dom = 0;
+
+  let domFestMinutes = 0;
+  let domDiurnas = 0;
+  let domNocturnas = 0;
+
+  // recorrer minuto a minuto toda la jornada real
+  for (let t = 0; t < totalMin; t++) {
+    const absoluteMin = entradaMin + t;
+    const minuteOfDay = absoluteMin % (24 * 60);
+
+    const currentDate = new Date(fecha);
+    currentDate.setMinutes(currentDate.getMinutes() + t);
+
+    const esFestivo = isHolidayDate(currentDate);
+
+    if (esFestivo) {
+      domFestMinutes++;
+
+      if (minuteOfDay >= noctStart || minuteOfDay < noctEnd)
+        domNocturnas++;
+      else
+        domDiurnas++;
     }
-    he_diurnas_dom = minutesToHours(extraDiurnas);
-    he_nocturnas_dom = minutesToHours(extraNocturnas);
   }
 
+  // Si NO hay minutos festivos → todas en 0 (automático)
+  if (domFestMinutes > 0) {
+
+    const maxDomFestMin = 7*60 + 20;
+    const primeras = Math.min(domFestMinutes, maxDomFestMin);
+
+    he_dom_fest = minutesToHours(primeras);
+
+    const resto = domFestMinutes - primeras;
+
+    if(resto > 0){
+      const ratioDiurnas = domDiurnas / domFestMinutes;
+      const ratioNocturnas = domNocturnas / domFestMinutes;
+
+      he_diurnas_dom = minutesToHours(resto * ratioDiurnas);
+      he_nocturnas_dom = minutesToHours(resto * ratioNocturnas);
+    }
+  }
+
+  /* ----------------------------
+     TONELADAS Y FIRMA
+  ---------------------------- */
   const toneladas = parseFloat(document.getElementById('toneladas').value) || 0;
   const ton_coteadas = parseFloat(document.getElementById('ton_coteadas').value) || 0;
   const firma = canvas.toDataURL();
 
+  /* ----------------------------
+     PAYLOAD
+  ---------------------------- */
   const payload = {
-    fecha, hora_entrada, hora_salida, placa: document.getElementById('placa').value,
+    fecha,
+    hora_entrada,
+    hora_salida,
+    placa: document.getElementById('placa').value,
     numero_folio: document.getElementById('numero_folio').value,
-    toneladas, ton_coteadas, firma,
-    bono_transporte, bono_alimentacion, recargo_nocturno,
-    he_diurnas, he_nocturnas, he_dom_fest, he_diurnas_dom, he_nocturnas_dom
+    toneladas,
+    ton_coteadas,
+    firma,
+    bono_transporte,
+    bono_alimentacion,
+    recargo_nocturno,
+    he_diurnas,
+    he_nocturnas,
+    he_dom_fest,
+    he_diurnas_dom,
+    he_nocturnas_dom
   };
 
+  /* ----------------------------
+     GUARDAR
+  ---------------------------- */
   try{
-      await axios.post('http://localhost/planilla_horas_toneladas/backend/src/index.php?path=registros/save', payload); //cambio nt me toco hacer un nuevo index.php para redirigir esto explicar
+    await axios.post(
+      'http://localhost/planilla_horas_toneladas/backend/src/index.php?path=registros/save',
+      payload
+    );
     alert('Guardado correctamente');
     location.href='auxiliar.html';
   }catch(e){
     console.error(e);
     alert('Error al guardar');
   }
+
 });
 </script>
-</body></html>
+
+</body>
+</html>

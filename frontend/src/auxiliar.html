@@ -19,8 +19,6 @@
       <h2>Reguistro Diario</h2>
       <div class="actions">
         <a href="registro_diario.html" class="btn">Registro Diario</a>
-        
-      
         <button id="btnSalir" class="btn secondary">Salir</button>
       </div>
     </div>
@@ -65,11 +63,9 @@
         `;
       } catch (e) {
         console.error('Error al obtener el usuario', e);
-        // Solo redirige si es error 401 (no autorizado)
         if (e.response?.status === 401) {
           location.href = 'index.html';
         } else {
-          // Mostrar error pero permitir continuar
           const userInfoDiv = document.getElementById('userInfo');
           userInfoDiv.innerHTML = `<p style="color:red;">⚠️ Error al cargar datos del usuario. Intenta recargar la página.</p>`;
         }
@@ -79,8 +75,6 @@
     async function loadRegistros() {
       try {
         const res = await axios.get('?path=registros/user', { withCredentials: true });
-        console.log('Respuesta del servidor:', res.data);
-
         const rows = res.data?.data || [];
         const tbody = document.querySelector('#tablaRegistros tbody');
         tbody.innerHTML = '';
@@ -97,8 +91,40 @@
 
         rows.forEach(r => {
           const tr = document.createElement('tr');
-          const d = new Date(r.fecha);
-          if (d.getDay() === 0) tr.classList.add('dia-festivo');
+
+          // Detectar domingo
+          const fecha = new Date(r.fecha);
+          const isSunday = fecha.getDay() === 0;
+
+          // Si quieres manejar festivos manualmente:
+          const festivos = []; 
+          const isHoliday = festivos.includes(r.fecha);
+
+          // --- Valores originales ---
+          let he_diurnas = r.he_diurnas || 0;
+          let he_nocturnas = r.he_nocturnas || 0;
+          let he_dom_fest = r.he_dom_fest || 0;
+          let he_diurnas_dom = r.he_diurnas_dom || 0;
+          let he_nocturnas_dom = r.he_nocturnas_dom || 0;
+
+          // ---------------------------------------------------
+          // 🔥 LÓGICA FRONTEND PARA EVITAR DUPLICACIÓN
+          // ---------------------------------------------------
+
+          if (isSunday || isHoliday) {
+            // Domingo / Festivo -> BORRAR horas normales
+            he_diurnas = 0;
+            he_nocturnas = 0;
+          } else {
+            // Día normal -> BORRAR horas dominicales
+            he_dom_fest = 0;
+            he_diurnas_dom = 0;
+            he_nocturnas_dom = 0;
+          }
+
+          if (isSunday) {
+            tr.classList.add('dia-festivo');
+          }
 
           tr.innerHTML = `
             <td>${r.fecha}</td>
@@ -107,22 +133,26 @@
             <td>${r.bono_transporte || 0}</td>
             <td>${r.bono_alimentacion || 0}</td>
             <td>${r.recargo_nocturno || 0}</td>
-            <td>${r.he_diurnas || 0}</td>
-            <td>${r.he_nocturnas || 0}</td>
-            <td>${r.he_dom_fest || 0}</td>
-            <td>${r.he_diurnas_dom || 0}</td>
-            <td>${r.he_nocturnas_dom || 0}</td>
+
+            <td>${he_diurnas}</td>
+            <td>${he_nocturnas}</td>
+            <td>${he_dom_fest}</td>
+            <td>${he_diurnas_dom}</td>
+            <td>${he_nocturnas_dom}</td>
+
             <td>${r.toneladas || 0}</td>
             <td>${r.ton_coteadas || 0}</td>
-            <td>${r.firma ? 'Sí' : ''}</td>`;
+            <td>${r.firma ? 'Sí' : ''}</td>
+          `;
+
           tbody.appendChild(tr);
         });
       } catch (e) {
         console.error(e);
+        const tbody = document.querySelector('#tablaRegistros tbody');
         if (e.response?.status === 401) {
           location.href = 'index.html';
         } else {
-          const tbody = document.querySelector('#tablaRegistros tbody');
           tbody.innerHTML = `
             <tr>
               <td colspan="14" style="text-align:center; color:red;">
