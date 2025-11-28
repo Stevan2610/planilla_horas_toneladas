@@ -3,15 +3,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="assets/css/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
 <script>
   // Configuración global de Axios
-  axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src';
+  axios.defaults.baseURL = 'http://localhost/planilla_horas_toneladas/backend/src/index.php';
   axios.defaults.withCredentials = true; // permite enviar cookies/sesiones
 </script>
 </head><body>
 <div class="container">
-  <div class="header"><h2>Administración de Usuarios</h2><a href="index.html" class="btn secondary">Salir</a></div>
+  <div class="header">
+    <h2>Administración de Usuarios</h2>
+    <a href="index.html" class="btn secondary">Salir</a></div>
   <table class="table" id="tablaUsers">
     <thead>
       <tr>
@@ -48,8 +50,7 @@ async function load(){
       <td>${u.unidad_operativa}</td>
       <td>
         <button class="btn edit" data-id="${u.id}">Editar</button>
-        ${u.cargo === 'auxiliar' ? `<button class="btn secondary edit-registros" data-id="${u.id}" data-nombres="${u.nombres} ${u.apellidos}">Registros</button>` : ''}
-        <button class="btn secondary del" data-id="${u.id}">Eliminar</button>
+       <button class="btn secondary del" data-id="${u.id}">Eliminar</button>
       </td>`; 
       tbody.appendChild(tr); 
     }); 
@@ -88,7 +89,7 @@ document.querySelector('#tablaUsers tbody').addEventListener('click', async (e) 
     const id = el.dataset.id;
     if (!confirm('¿Eliminar usuario? Esta acción no se puede deshacer.')) return;
     try {
-      const res = await axios.post('index.php?path=users/delete', { id });
+      const res = await axios.post('?path=users/delete', { id });
       if (res.data?.success) load();
       else alert('Error: ' + JSON.stringify(res.data));
     } catch (err) { console.error(err); alert('Error eliminando'); }
@@ -103,9 +104,10 @@ document.querySelector('#tablaUsers tbody').addEventListener('click', async (e) 
       nombres: cols[1].innerText,
       apellidos: cols[2].innerText,
       correo: cols[3].innerText,
-      celular: cols[4].innerText,
-      cargo: cols[5].innerText,
-      unidad_operativa: cols[6].innerText
+        // índice 4 es la columna de contraseña enmascarada; celular comienza en 5
+        celular: cols[5].innerText,
+        cargo: cols[6].innerText,
+        unidad_operativa: cols[7].innerText
     };
     showEditForm(current);
   }
@@ -178,32 +180,33 @@ function showEditForm(user){
       navigator.clipboard?.writeText(txt).then(()=> alert('Contraseña copiada al portapapeles')).catch(()=> alert('No se pudo copiar')); 
     });
 
-    document.getElementById('btnSaveUser').addEventListener('click', async ()=>{
-      const payload = {
-        id: user.id,
-        identificacion: document.getElementById('e_identificacion').value,
-        nombres: document.getElementById('e_nombres').value,
-        apellidos: document.getElementById('e_apellidos').value,
-        correo: document.getElementById('e_correo').value,
-        celular: document.getElementById('e_celular').value,
-        cargo: document.getElementById('e_cargo').value,
-        unidad_operativa: document.getElementById('e_unidad').value,
-        clave: document.getElementById('e_clave').value
+      // Siempre actualizar el handler de guardado con el usuario actual
+      document.getElementById('btnSaveUser').onclick = async () => {
+          const payload = {
+              id: user.id,
+              identificacion: document.getElementById('e_identificacion').value,
+              nombres: document.getElementById('e_nombres').value,
+              apellidos: document.getElementById('e_apellidos').value,
+              correo: document.getElementById('e_correo').value,
+              celular: document.getElementById('e_celular').value,
+              cargo: document.getElementById('e_cargo').value,
+              unidad_operativa: document.getElementById('e_unidad').value,
+              clave: document.getElementById('e_clave').value
+          };
+          try {
+              const res = await axios.post('?path=users/update', payload);
+              if (res.data?.success) {
+                  // si se asignó contraseña, mostrarla al admin
+                  if (payload.clave) {
+                      alert('Usuario actualizado. Nueva contraseña: ' + payload.clave);
+                  } else {
+                      alert('Usuario actualizado');
+                  }
+                  form.remove();
+                  load();
+              } else alert('Error: ' + JSON.stringify(res.data));
+          } catch (err) { console.error(err); alert('Error al actualizar'); }
       };
-      try{
-        const res = await axios.post('index.php?path=users/update', payload);
-        if (res.data?.success) {
-          // si se asignó contraseña, mostrarla al admin
-          if (payload.clave) {
-            alert('Usuario actualizado. Nueva contraseña: ' + payload.clave);
-          } else {
-            alert('Usuario actualizado');
-          }
-          form.remove();
-          load();
-        } else alert('Error: ' + JSON.stringify(res.data));
-      }catch(err){ console.error(err); alert('Error al actualizar'); }
-    });
   }
   document.getElementById('e_identificacion').value = user.identificacion || '';
   document.getElementById('e_nombres').value = user.nombres || '';
@@ -340,7 +343,7 @@ function showEditRegistroForm(registro, userId, nombres, container){
       he_dom_fest: parseFloat(document.getElementById('er_he_dom_fest').value) || 0
     };
     try {
-      const res = await axios.post('index.php?path=registros/update', payload);
+        const res = await axios.post('?path=registros/update', payload);
       if (res.data?.success) {
         alert('Registro actualizado');
         form.remove();
